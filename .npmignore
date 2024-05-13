@@ -1,0 +1,12 @@
+.env
+.gitignore
+package-lock.json
+
+/src/
+/.idea/
+/.github/
+/.vscode/
+
+**/*.spec.ts
+**/*.test.ts
+**/*.snap

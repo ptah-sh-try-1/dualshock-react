@@ -1,0 +1,31 @@
+{
+  "name": "@ptah-sh/dualshock-react",
+  "version": "0.0.0",
+  "description": "React components and hooks for Dualshock RPC.",
+  "type": "module",
+  "main": "dist/src/index.js",
+  "types": "dist/types/src/index.d.ts",
+  "scripts": {
+    "dev": "tsc -p tsconfig.json --watch",
+    "build": "tsc -p tsconfig.json",
+    "build:dev": "tsc -p tsconfig.json --watch",
+    "test": "vitest",
+    "test:dev": "vitest --watch"
+  },
+  "author": "Bohdan Shulha <b.shulha@pm.me>",
+  "license": "MIT",
+  "devDependencies": {
+    "@biomejs/biome": "^1.7.3",
+    "@types/react": "^18.3.2",
+    "pino-pretty": "^11.0.0",
+    "tsx": "^4.7.3",
+    "typescript": "^5.4.5",
+    "vitest": "^1.6.0"
+  },
+  "dependencies": {
+    "@ptah-sh/dualshock": "^0.0.24",
+    "react": "^18.3.1",
+    "swr": "^2.2.5",
+    "zod": "^3.23.8"
+  }
+}
