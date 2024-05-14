@@ -1,31 +1,65 @@
-import type { RpcClient } from "@ptah-sh/dualshock";
-import type { RpcConnection } from "@ptah-sh/dualshock/dist/types/src/RpcConnection.js";
+import {
+	RpcClient,
+	WebSocketDom,
+	type RpcConnection,
+} from "@ptah-sh/dualshock";
 import {
 	createContext,
+	useCallback,
 	useContext,
-	useState,
+	useMemo,
+	useRef,
 	type PropsWithChildren,
 } from "react";
-import { TypeOf, z } from "zod";
-import { useQuery } from "./hooks.js";
+import { type TypeOf, type ZodTypeAny, z } from "zod";
+import { useQuery, useMutation } from "./hooks.js";
+import type { BareFetcher, SWRConfiguration, SWRResponse } from "swr";
+import { pino } from "pino";
+import type {
+	SWRMutationConfiguration,
+	SWRMutationResponse,
+} from "swr/mutation";
 
 type Context = {
-	rpcClient: RpcClient;
-	rpcConnection: RpcConnection<any, any, any, any, any>;
-	getConnection: () => RpcConnection<any, any, any, any, any>;
-} | null;
-
-const RpcContext = createContext<Context>(null);
-
-type RpcProviderProps = PropsWithChildren & {
-	rpcClient: RpcClient;
+	invoke: (name: string, args: any) => Promise<any>;
 };
 
-const RpcProvider: React.FC<RpcProviderProps> = ({ children }) => {
-	const [state, setState] = useState<Context>(null);
+const RpcContext = createContext<Context>({
+	invoke: () => Promise.reject(new Error("RPC Context is not configured")),
+});
+
+type RpcProviderProps = PropsWithChildren & {
+	url: string;
+	invokables: Record<string, { args: ZodTypeAny; returns: ZodTypeAny }>;
+	events: Record<string, { payload: ZodTypeAny }>;
+};
+
+const RpcProvider: React.FC<RpcProviderProps> = ({
+	children,
+	url,
+	invokables,
+	events,
+}) => {
+	const client = useMemo(() => new RpcClient(pino()), []);
+	const connection = useRef<RpcConnection<any, any, any, any, any> | null>(
+		null,
+	);
+
+	const invoke = useCallback(
+		async (name: string, args: any) => {
+			if (connection.current == null) {
+				const ws = new WebSocketDom(new WebSocket(url));
+
+				connection.current = await client.connect(ws, { invokables, events });
+			}
+
+			return connection.current.invoke(name, args);
+		},
+		[client, url, invokables, events],
+	);
 
 	return (
-		<RpcContext.Provider value={rpcClient}>{children}</RpcContext.Provider>
+		<RpcContext.Provider value={{ invoke }}>{children}</RpcContext.Provider>
 	);
 };
 
@@ -39,32 +73,60 @@ export const useRpcContext = () => {
 };
 
 export const createDualshock = <
-	A extends z.ZodTypeAny,
-	R extends z.ZodTypeAny,
-	E extends z.ZodTypeAny,
-	Invokables extends Record<
-		string,
-		{ args: z.ZodTypeAny; returns: z.ZodTypeAny }
-	>,
-	Events extends Record<string, { payload: E }>,
+	Invokables extends Record<string, { args: ZodTypeAny; returns: ZodTypeAny }>,
+	Events extends Record<string, { payload: ZodTypeAny }>,
 >({
 	url,
 	invokables,
+	events,
 }: {
 	url: `ws://${string}` | `wss://${string}`;
 	invokables: Invokables;
 	events: Events;
 }): {
-	useQuery: typeof useQuery<Invokables>;
+	Provider: React.FC<PropsWithChildren>;
+	useQuery: <K extends Extract<keyof Invokables, string>>(
+		name: K,
+		args: TypeOf<Invokables[K]["args"]>,
+		config?: SWRConfiguration<
+			Invokables[K]["returns"],
+			Error,
+			BareFetcher<Invokables[K]["returns"]>
+		>,
+	) => SWRResponse<TypeOf<Invokables[K]["returns"]>>;
+	useMutation: <
+		K extends Extract<keyof Invokables, string>,
+		Args extends TypeOf<Invokables[K]["args"]>,
+		Returns extends TypeOf<Invokables[K]["returns"]>,
+	>(
+		name: K,
+		config?: SWRMutationConfiguration<
+			TypeOf<Invokables[K]["returns"]>,
+			Error,
+			string,
+			TypeOf<Invokables[K]["args"]>,
+			TypeOf<Invokables[K]["returns"]>
+		>,
+	) => SWRMutationResponse<
+		TypeOf<Invokables[K]["returns"]>,
+		Error,
+		string,
+		TypeOf<Invokables[K]["args"]>
+	>;
 } => {
 	return {
-		// Provider: RpcProvider,
-		useQuery: useQuery,
-		// useMutation: () => {},
+		Provider: ({ children }) => (
+			<RpcProvider url={url} invokables={invokables} events={events}>
+				{children}
+			</RpcProvider>
+		),
+		useQuery,
+		useMutation,
 		// useSubscription: () => {},
 	};
 };
 
+/**
 const invokables = {
 	someRpc: {
 		args: z.object({
@@ -84,7 +146,7 @@ const invokables = {
 	},
 } as const;
 
-const { useQuery: dsQ } = createDualshock({
+const { useQuery: dsQ, useMutation: dsM } = createDualshock({
 	url: "ws://some-url",
 	invokables,
 	events: {},
@@ -97,9 +159,13 @@ dsQ("someRpc", {
 
 // should be type error
 dsQ("secondRpc", {
-	argFromSomeRpc: "SHOULD ERROR",
 	argsFromSecondRpc: 123,
-	nonExistingArg: "SHOULD ERROR",
 });
 
-dsQ("nonexistingrpc", {});
+const { trigger } = dsM("someRpc");
+
+trigger({
+	argFromSomeRpc: "test",
+});
+
+ */
