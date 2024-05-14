@@ -1,1 +1,1 @@
-export { createDualshock } from "./context.jsx";
+export { createDualshock } from "./context.js";
