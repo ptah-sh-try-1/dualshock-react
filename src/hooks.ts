@@ -68,8 +68,6 @@ export const useSubscription = <EventName extends string, EventData>(
 				await connect();
 			} catch (err) {
 				next(err);
-
-				return;
 			}
 
 			client.on(
