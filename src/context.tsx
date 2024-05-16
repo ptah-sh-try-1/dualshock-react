@@ -25,6 +25,7 @@ type Context = {
 	client: RpcClient;
 	invoke: (name: string, args: any) => Promise<any>;
 	events: Record<string, { payload: ZodTypeAny }>;
+	connect: () => Promise<RpcConnection<any, any, any, any, any>>;
 };
 
 const RpcContext = createContext<Context>({
@@ -33,6 +34,9 @@ const RpcContext = createContext<Context>({
 	},
 	invoke: () => Promise.reject(new Error("RPC Context is not configured")),
 	events: {},
+	connect(): Promise<RpcConnection<any, any, any, any, any>> {
+		throw new Error("RPC Context is not configured");
+	},
 });
 
 type RpcProviderProps = PropsWithChildren & {
@@ -52,21 +56,37 @@ const RpcProvider: React.FC<RpcProviderProps> = ({
 		null,
 	);
 
+	const connect = useCallback(async () => {
+		if (connection.current == null) {
+			const ws = new WebSocketDom(new WebSocket(url));
+
+			connection.current = await client.connect(ws, {
+				invokables,
+				events,
+			});
+		}
+
+		return connection.current;
+	}, [url, client, invokables, events]);
+
 	const invoke = useCallback(
 		async (name: string, args: any) => {
-			if (connection.current == null) {
-				const ws = new WebSocketDom(new WebSocket(url));
+			const conn = await connect();
 
-				connection.current = await client.connect(ws, { invokables, events });
-			}
-
-			return connection.current.invoke(name, args);
+			return conn.invoke(name, args);
 		},
-		[client, url, invokables, events],
+		[connect],
 	);
 
 	return (
-		<RpcContext.Provider value={{ client, invoke, events }}>
+		<RpcContext.Provider
+			value={{
+				client,
+				invoke,
+				events,
+				connect,
+			}}
+		>
 			{children}
 		</RpcContext.Provider>
 	);

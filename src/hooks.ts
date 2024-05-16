@@ -59,11 +59,19 @@ export const useSubscription = <EventName extends string, EventData>(
 	name: EventName,
 	config?: SWRConfiguration<EventData>,
 ): SWRSubscriptionResponse<EventData> => {
-	const { client, events } = useRpcContext();
+	const { client, events, connect } = useRpcContext();
 
 	return useSWRSubscription(
 		name as string,
-		(name, { next }) => {
+		async (name, { next }) => {
+			try {
+				await connect();
+			} catch (err) {
+				next(err);
+
+				return;
+			}
+
 			client.on(
 				name,
 				on()
