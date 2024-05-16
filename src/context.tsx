@@ -12,20 +12,27 @@ import {
 	type PropsWithChildren,
 } from "react";
 import { type TypeOf, type ZodTypeAny, z } from "zod";
-import { useQuery, useMutation } from "./hooks.js";
+import { useQuery, useMutation, useSubscription } from "./hooks.js";
 import type { BareFetcher, SWRConfiguration, SWRResponse } from "swr";
 import { pino } from "pino";
 import type {
 	SWRMutationConfiguration,
 	SWRMutationResponse,
 } from "swr/mutation";
+import type { SWRSubscriptionResponse } from "swr/subscription";
 
 type Context = {
+	client: RpcClient;
 	invoke: (name: string, args: any) => Promise<any>;
+	events: Record<string, { payload: ZodTypeAny }>;
 };
 
 const RpcContext = createContext<Context>({
+	get client(): RpcClient {
+		throw new Error("RPC Context is not configured");
+	},
 	invoke: () => Promise.reject(new Error("RPC Context is not configured")),
+	events: {},
 });
 
 type RpcProviderProps = PropsWithChildren & {
@@ -59,7 +66,9 @@ const RpcProvider: React.FC<RpcProviderProps> = ({
 	);
 
 	return (
-		<RpcContext.Provider value={{ invoke }}>{children}</RpcContext.Provider>
+		<RpcContext.Provider value={{ client, invoke, events }}>
+			{children}
+		</RpcContext.Provider>
 	);
 };
 
@@ -113,6 +122,9 @@ export const createDualshock = <
 		string,
 		TypeOf<Invokables[K]["args"]>
 	>;
+	useSubscription: <K extends Extract<keyof Events, string>>(
+		name: K,
+	) => SWRSubscriptionResponse<TypeOf<Events[keyof Events]["payload"]>>;
 } => {
 	return {
 		Provider: ({ children }) => (
@@ -122,7 +134,7 @@ export const createDualshock = <
 		),
 		useQuery,
 		useMutation,
-		// useSubscription: () => {},
+		useSubscription,
 	};
 };
 

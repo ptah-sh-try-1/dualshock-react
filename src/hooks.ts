@@ -2,16 +2,16 @@ import useSWR, {
 	type BareFetcher,
 	type SWRConfiguration,
 	type SWRResponse,
-	mutate,
-	type MutatorOptions,
 } from "swr";
-import type { TypeOf, ZodType, ZodTypeAny, z } from "zod";
 import { useRpcContext } from "./context.js";
 import useSWRMutation, {
 	type SWRMutationConfiguration,
 	type SWRMutationResponse,
 } from "swr/mutation";
-// import { rpcState } from "./rpc/state.js";
+import useSWRSubscription, {
+	type SWRSubscriptionResponse,
+} from "swr/subscription";
+import { on } from "@ptah-sh/dualshock";
 
 export const useQuery = <
 	RpcName extends string,
@@ -50,6 +50,32 @@ export const useMutation = <RpcName extends string, Args, Returns>(
 		name,
 		(name, { arg }) => {
 			return context.invoke(name, arg);
+		},
+		config,
+	);
+};
+
+export const useSubscription = <EventName extends string, EventData>(
+	name: EventName,
+	config?: SWRConfiguration<EventData>,
+): SWRSubscriptionResponse<EventData> => {
+	const { client, events } = useRpcContext();
+
+	return useSWRSubscription(
+		name as string,
+		(name, { next }) => {
+			client.on(
+				name,
+				on()
+					.args(events[name].payload)
+					.fn(async (args) => {
+						next(null, args);
+					}),
+			);
+
+			return () => {
+				console.log("unsubscribing (no, lol) from", name);
+			};
 		},
 		config,
 	);
