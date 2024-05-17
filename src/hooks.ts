@@ -63,21 +63,25 @@ export const useSubscription = <EventName extends string, EventData>(
 
 	return useSWRSubscription(
 		name as string,
-		async (name, { next }) => {
-			try {
-				await connect();
-			} catch (err) {
-				next(err);
-			}
+		(name, { next }) => {
+			const makeSubscription = async () => {
+				try {
+					await connect();
+				} catch (err) {
+					next(err);
+				}
 
-			client.on(
-				name,
-				on()
-					.args(events[name].payload)
-					.fn(async (args) => {
-						next(null, args);
-					}),
-			);
+				client.on(
+					name,
+					on()
+						.args(events[name].payload)
+						.fn(async (args) => {
+							next(null, args);
+						}),
+				);
+			};
+
+			makeSubscription();
 
 			return () => {
 				console.log("unsubscribing (no, lol) from", name);
