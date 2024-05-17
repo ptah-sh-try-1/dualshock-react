@@ -1,6 +1,6 @@
 {
   "name": "@ptah-sh/dualshock-react",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "React components and hooks for Dualshock RPC.",
   "type": "module",
   "main": "dist/src/index.js",
